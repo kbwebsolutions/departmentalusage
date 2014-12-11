@@ -60,18 +60,18 @@ function get_hods() {
 	global $CFG, $DB;
 	
 	// Get the ID of the role used in the report.
-	$hod = get_config('departmentreport', 'managerroleid');
+	$sql = "SELECT DISTINCT usr.id, CONCAT_WS(' ',firstname,lastname) AS hod, department AS dept
+			FROM {user} AS usr
+			JOIN {role_assignments} AS ra ON ra.userid = usr.id
+			WHERE ra.roleid = :managerrole";
 	
-	$sql = "SELECT DISTINCT usr.id, CONCAT_WS(' ',firstname,lastname) AS hod, department AS dept, institution AS centre
-			FROM mdl_user AS usr
-			JOIN mdl_role_assignments AS ra ON ra.userid = usr.id
-			WHERE ra.roleid =".$hod;
+	$params['managerrole'] = get_config('report_departmentalusage', 'managerroleid');
+	$hods = $DB->get_records_sql($sql, $params);
 	
-	$hods = $DB->get_records_sql($sql);
+	print_object($hods);
 	foreach($hods as $h) {
 		if ($h->dept) {
-			$content[$h->id] = $h->dept.' ('.$h->centre.')';
-			//$content[$h->id] = $h->hod.' ('.$h->dept.')';
+			$content[$h->id] = $h->hod.' ('.$h->dept.')';
 		} else {
 			$content[$h->id] = $h->hod;
 		}
