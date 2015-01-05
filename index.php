@@ -83,7 +83,6 @@ if(!$downloadtype) {
 	$params['type'] = $downloadtype;
 }
 
-
 $hods = get_hods();
 $timeoptions = get_time();
 $outputtypes = array('xls'=>'*.xls file', 'csv'=>'*.csv file');
