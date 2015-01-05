@@ -36,9 +36,10 @@ function get_teachers($cid){
 					JOIN mdl_role_assignments AS asg ON asg.userid = usr.id
 					JOIN mdl_context AS cont ON asg.contextid = cont.id AND cont.contextlevel = 50
 					JOIN mdl_course AS crs ON cont.instanceid = crs.id
-					WHERE crs.id = '.$cid .' AND asg.roleid = 3';
+					WHERE crs.id = '.$cid .' AND (asg.roleid = 3 OR asg.roleid = 4)';
 	
 	$teachers = $DB->get_records_sql($teacherssql);
+	
 	
 	if($teachers) {
 		$content = '';
@@ -68,7 +69,6 @@ function get_hods() {
 	$params['managerrole'] = get_config('report_departmentalusage', 'managerroleid');
 	$hods = $DB->get_records_sql($sql, $params);
 	
-	print_object($hods);
 	foreach($hods as $h) {
 		if ($h->dept) {
 			$content[$h->id] = $h->hod.' ('.$h->dept.')';
@@ -118,64 +118,107 @@ function get_time() {
 	return $timeoptions;
 }
 
+/** 
+ * Gets a list of the categories that the manager has access to
+ *
+ */
+ 
+function get_dept_cats($managerrole, $userid) {
+    global $CFG, $DB;
+    $cats = "SELECT cc.id AS cid, cc.name
+             FROM mdl_course_categories AS cc
+                INNER JOIN mdl_context AS cx on cc.id = cx.instanceid
+                AND cx.contextlevel = 40
+                    INNER JOIN mdl_role_assignments AS ra ON cx.id = ra.contextid
+                    INNER JOIN mdl_user AS usr ON ra.userid = usr.id
+                    WHERE userid = :usr AND roleid = :managerrole";
+    
+    $params['usr'] = $userid;
+    $params['managerrole'] = $managerrole;
+    
+    $content = $DB->get_records_sql($cats, $params);
+    
+    return $content;
+    
+}
 /**
  * This is the main function which creates the table
  * in the report
- * @$params - Array including the userid to searh on and time for logins
+ * @$params - Array including the userid to search on and time for logins
  */
 function get_data($params) {
 	
-	global $CFG, $DB;
-	
-	$managerrole = get_config('departmentreport', 'managerroleid');
-		
-	// Gets the full name of the course as well as the courseid and the created timestamp
-	$coursessql = 'SELECT fullname AS course, course.id AS cid, course.timecreated AS created, course.visible AS visible
-			FROM mdl_role_assignments AS asg
-			JOIN mdl_context AS context ON asg.contextid = context.id AND context.contextlevel = 50
-			JOIN mdl_user AS usr on usr.id = asg.userid
-			JOIN mdl_course AS course ON context.instanceid = course.id
-			WHERE asg.roleid = ' .$managerrole. ' AND usr.id = '.$params['hod'].'. AND visible = 1
-			GROUP BY course.id
-			ORDER BY fullname ASC';
-	$courses = $DB->get_records_sql($coursessql);
-	
+	global $CFG, $DB, $USER;
+    $courses = get_report_data($params);
+    
 	$table = new html_table();
 	if($params['showteachers'] == 1) {
 		$table->align = array('left', 'center','center', 'center', 'center', 'center', 'center', 'center', 'center');
-	$table->head = array(get_string('course', 'report_departmentalusage'), get_string('teachers', 'report_departmentalusage'), get_string('created', 'report_departmentalusage'), get_string('enrolled', 'report_departmentalusage'), get_string('logins', 'report_departmentalusage'), get_string('lastlogin', 'report_departmentalusage'), get_string('update', 'report_departmentalusage'), get_string('resources', 'report_departmentalusage'), get_string('activities', 'report_departmentalusage'));
+        $table->head  = array(get_string('course', 'report_departmentalusage'), 
+                              get_string('teachers', 'report_departmentalusage'), 
+                              get_string('created', 'report_departmentalusage'), 
+                              get_string('enrolled', 'report_departmentalusage'), 
+                              get_string('logins', 'report_departmentalusage'), 
+                              get_string('lastlogin', 'report_departmentalusage'), 
+                              get_string('update', 'report_departmentalusage'), 
+                              get_string('activities', 'report_departmentalusage'), 
+                              get_string('resources', 'report_departmentalusage')
+                             );
 
 	} else {
-	$table->align = array('left', 'center', 'center', 'center', 'center', 'center', 'center', 'center');
-	$table->head = array(get_string('course', 'report_departmentalusage'), get_string('created', 'report_departmentalusage'), get_string('enrolled', 'report_departmentalusage'), get_string('logins', 'report_departmentalusage'), get_string('lastlogin', 'report_departmentalusage'), get_string('update', 'report_departmentalusage'), get_string('resources', 'report_departmentalusage'), get_string('activities', 'report_departmentalusage'));
+	    $table->align = array('left', 'center', 'center', 'center', 'center', 'center', 'center', 'center');
+        $table->head  = array(get_string('course', 'report_departmentalusage'), 
+                              get_string('created', 'report_departmentalusage'), 
+                              get_string('enrolled', 'report_departmentalusage'), 
+                              get_string('logins', 'report_departmentalusage'), 
+                              get_string('lastlogin', 'report_departmentalusage'), 
+                              get_string('update', 'report_departmentalusage'), 
+                              get_string('activities', 'report_departmentalusage'), 
+                              get_string('resources', 'report_departmentalusage')
+                             );
 	}
+	
 	foreach ($courses as $c) {
 		$teach = get_teachers($c->cid);
 		
 		// Gets the students based on context level 50 - course and course id from $c
 		$studentssql = 'SELECT count(asg.id) AS students 
-FROM mdl_role_assignments as asg 
-JOIN mdl_context AS context ON asg.contextid = context.id AND context.contextlevel = 50 
-JOIN mdl_user AS usr on usr.id = asg.userid JOIN mdl_course AS course ON context.instanceid = course.id 
-WHERE asg.roleid = 5 AND course.id ='.$c->cid;
+                        FROM mdl_role_assignments as asg 
+                        JOIN mdl_context AS context ON asg.contextid = context.id AND context.contextlevel = 50 
+                        JOIN mdl_user AS usr on usr.id = asg.userid JOIN mdl_course AS course ON context.instanceid = course.id 
+                        WHERE asg.roleid = 5 AND course.id ='.$c->cid;
 		$students = $DB->get_record_sql($studentssql);
 		
 		// Gets a count of resources in the mdl_resource table with course = $c
-		$resourcesql = 'SELECT count(id) AS res FROM mdl_resource WHERE course = '. $c->cid;
+		$resourcesql = 'SELECT count(id) AS res 
+		                FROM mdl_resource 
+		                WHERE course = '. $c->cid;
 		$resource = $DB->get_record_sql($resourcesql);
 		
 		// Gets a count of activites in the mdl_course_modules table with course = $c
 		// TODO Find out why SCORM has a problem
-		$modulesql = 'SELECT count(*) AS mods FROM mdl_course_modules AS cm WHERE cm.course ='. $c->cid .' AND module <> 17';
+		$modulesql   = 'SELECT count(*) AS mods 
+		                FROM mdl_course_modules AS cm 
+		                WHERE cm.course ='. $c->cid;
 		$module = $DB->get_record_sql($modulesql);
 		
-		// Get the last time a user logged into a specific course
-		$viewsql = 'SELECT DISTINCT count(id) AS views, MAX(time) AS lastlogin FROM mdl_log WHERE course = '. $c->cid . ' AND action = "view" AND time > '.$params["date"];
+		// Get total number of logins to a course
+		$totallogins = 'SELECT count(id) AS logins
+		                FROM {logstore_standard_log}
+		                WHERE timecreated > :timeframe AND courseid = '. $c->cid . ' AND action = "viewed" AND edulevel = 2';
+        $parameters['timeframe'] = $params['timeframe'];
+        $logins = $DB->get_record_sql($totallogins, $parameters);
+        
+        // Get the last time a user logged into a specific course
+		$viewsql     = 'SELECT DISTINCT MAX(timecreated) AS lastlogin 
+		                FROM {logstore_standard_log} 
+		                WHERE courseid = '. $c->cid . ' AND action = "viewed" AND edulevel = 2';
 		$view = $DB->get_record_sql($viewsql);
 		
 		// Get the last time an add or update action was taken on a course = $c
-		$updatesql = 'SELECT course, MAX(time) AS Updated FROM mdl_log
-						WHERE (action LIKE "%add%" OR action = "update" OR action = "delete") AND course = '.$c->cid;
+		$updatesql   = 'SELECT MAX(timecreated) AS Updated 
+		                FROM {logstore_standard_log}
+                        WHERE (action LIKE "created" OR action = "updated" OR action = "deleted") AND courseid = '.$c->cid . ' AND target = "course_module"';
 		$update = $DB->get_record_sql($updatesql);
 		
 		// This section creates a row for the table
@@ -187,20 +230,20 @@ WHERE asg.roleid = 5 AND course.id ='.$c->cid;
 		$row[] = userdate($c->created, get_string('strftimedatefullshort', 'langconfig'));
 		$row[] = '<a href="'.$CFG->wwwroot.'/user/index.php?id='.$c->cid.'">'.$students->students.'</a>';
 		//$row[] = '<a href="'.$CFG->wwwroot.'/user/index.php?id='.$c->cid.'">'.$c->students.'</a>';
-		$row[] = $view->views;	
+		$row[] = $logins->logins;	
 		$row[] = format_time(time() - $view->lastlogin);
 		if (!$update->updated) {
 			$row[] = "Unknown";
 		} else {
 			$row[] = format_time(time() - $update->updated);
 		}	
+		$row[] = $module->mods;
 		$row[] = $resource->res;	
-		$row[] = $module->mods;	
+			
 		
 		
 		$table->data[] = $row;
 		
-		// End of row creation
 	}
 	
 	$content = html_writer::table($table);
@@ -208,6 +251,28 @@ WHERE asg.roleid = 5 AND course.id ='.$c->cid;
 	return $content;
 }
 
+
+function get_report_data($params) {
+    global $CFG, $DB; 
+    
+    $config = get_config('report_departmentalusage');
+	
+	$cats = get_dept_cats($config->managerroleid, $params['hod']);
+    $catno = implode(", ", array_keys($cats));
+    	
+	$courselistsql = "SELECT c.id AS cid, c.fullname AS course, c.timecreated AS Created, c.visible AS visible
+                      FROM {course} c
+                      LEFT JOIN {context} ctx ON (ctx.instanceid = c.id AND ctx.contextlevel = :contextlevel)
+                      WHERE c.category IN ( :catid ) and c.id <> :sid";
+                        
+	$sqlparams['contextlevel'] = CONTEXT_COURSE;
+	$sqlparams['sid'] = SITEID;
+	$sqlparams['catid'] = $catno;
+
+	$courses = $DB->get_records_sql($courselistsql, $sqlparams);
+	
+    return $courses;
+}
 /**
  * This function gets the data but ready for downloading
  * into a file rather than displaying
@@ -216,50 +281,54 @@ WHERE asg.roleid = 5 AND course.id ='.$c->cid;
 function get_download_data($params) {
 		global $CFG, $DB;
 	
-	//$managerrole = 1;
-	$managerrole = get_config('departmentreport', 'managerroleid');
-		
-	$coursessql = 'SELECT fullname AS course, course.id AS cid, course.timecreated AS created
-			FROM mdl_role_assignments AS asg
-			JOIN mdl_context AS context ON asg.contextid = context.id AND context.contextlevel = 50
-			JOIN mdl_user AS usr on usr.id = asg.userid
-			JOIN mdl_course AS course ON context.instanceid = course.id
-			WHERE asg.roleid = ' .$managerrole. ' AND usr.id = '.$params['hod'].'
-			GROUP BY course.id
-			ORDER BY fullname ASC';
-	$courses = $DB->get_records_sql($coursessql);
+	
+	$courses = get_report_data($params);
+	
 	$rows = array();
 	$i = 1;
 		
 	foreach ($courses as $c) {
 		$row = array();
-		$usersql = 'SELECT CONCAT_WS(" ", firstname, lastname) AS depthead FROM mdl_user WHERE mdl_user.id ='.$params['hod'];
+		$usersql     = 'SELECT CONCAT_WS(" ", firstname, lastname) AS depthead 
+		                FROM mdl_user 
+		                WHERE mdl_user.id ='.$params['hod'];
 		$user = $DB->get_record_sql($usersql);
 		$row["depthead"] = $user->depthead;
+		
 		$teach = get_teachers($c->cid);
+		
 		$studentssql = 'SELECT count(asg.id) AS students 
-FROM mdl_role_assignments as asg 
-JOIN mdl_context AS context ON asg.contextid = context.id AND context.contextlevel = 50 
-JOIN mdl_user AS usr on usr.id = asg.userid JOIN mdl_course AS course ON context.instanceid = course.id 
-WHERE asg.roleid = 5 AND course.id ='.$c->cid;
+                        FROM mdl_role_assignments as asg 
+                        JOIN mdl_context AS context ON asg.contextid = context.id AND context.contextlevel = 50 
+                        JOIN mdl_user AS usr on usr.id = asg.userid JOIN mdl_course AS course ON context.instanceid = course.id 
+                        WHERE asg.roleid = 5 AND course.id ='.$c->cid;
 		$students = $DB->get_record_sql($studentssql);
-		$resourcesql = 'SELECT count(id) AS res FROM mdl_resource WHERE course = '. $c->cid;
+		
+		$resourcesql = 'SELECT count(id) AS res 
+		                FROM mdl_resource 
+		                WHERE course = '. $c->cid;
 		$resource = $DB->get_record_sql($resourcesql);
-		$modulesql = 'SELECT count(*) AS mods FROM mdl_course_modules AS cm WHERE cm.course ='. $c->cid .' AND module <> 17';
+		
+		$modulesql   = 'SELECT count(*) AS mods 
+		                FROM mdl_course_modules AS cm 
+                        WHERE cm.course ='. $c->cid .' AND module <> 17';
 		$module = $DB->get_record_sql($modulesql);
-		$viewsql = 'SELECT DISTINCT count(id) AS views, MAX(time) AS lastlogin FROM mdl_log WHERE course = '. $c->cid . ' AND action = "view" AND time > '.$params["date"];
+		
+		$viewsql     = 'SELECT DISTINCT count(id) AS views, MAX(time) AS lastlogin 
+		                FROM {logstore_standard_log} 
+                        WHERE course = '. $c->cid . ' AND action = "view" AND time > '.$params["date"];
 		$view = $DB->get_record_sql($viewsql);
 		
-		$updatesql = 'SELECT course, MAX(time) AS Updated FROM mdl_log
-						WHERE (action LIKE "%add%" OR action = "update") AND course = '.$c->cid;
+		$updatesql = 'SELECT course, MAX(time) AS Updated FROM {logstore_standard_log}
+				      WHERE (action LIKE "%add%" OR action = "update") AND course = '.$c->cid;
 		$update = $DB->get_record_sql($updatesql);
+		
 		$row['coursename'] = $c->course;
 		if ($params['showteachers'] == 1) {
 			$row['editingteachers'] = rtrim(strip_tags($teach), ",");
 		}
 		$row['createdon'] = userdate($c->created, get_string('strftimedatefullshort', 'langconfig'));
 		$row['enrolledstudents'] = $students->students;
-		//$row[] = '<a href="'.$CFG->wwwroot.'/user/index.php?id='.$c->cid.'">'.$c->students;
 		$row['logins'] = $view->views;	
 		$row['lastlogin'] = userdate($view->lastlogin, get_string('strftimedatefullshort', 'langconfig'));
 		$row['lastupdate'] = userdate($update->updated, get_string('strftimedatefullshort', 'langconfig'));	
