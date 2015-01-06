@@ -237,7 +237,7 @@ function get_data($params) {
 		} else {
 			$row[] = format_time(time() - $update->updated);
 		}	
-		$row[] = $module->mods;
+		$row[] = $module->mods - $resource->res;
 		$row[] = $resource->res;	
 			
 		
@@ -281,7 +281,6 @@ function get_report_data($params) {
 function get_download_data($params) {
 		global $CFG, $DB;
 	
-	
 	$courses = get_report_data($params);
 	
 	$rows = array();
@@ -297,6 +296,7 @@ function get_download_data($params) {
 		
 		$teach = get_teachers($c->cid);
 		
+		// Gets the students based on context level 50 - course and course id from $c
 		$studentssql = 'SELECT count(asg.id) AS students 
                         FROM mdl_role_assignments as asg 
                         JOIN mdl_context AS context ON asg.contextid = context.id AND context.contextlevel = 50 
@@ -304,23 +304,36 @@ function get_download_data($params) {
                         WHERE asg.roleid = 5 AND course.id ='.$c->cid;
 		$students = $DB->get_record_sql($studentssql);
 		
+		// Gets a count of resources in the mdl_resource table with course = $c
 		$resourcesql = 'SELECT count(id) AS res 
 		                FROM mdl_resource 
 		                WHERE course = '. $c->cid;
 		$resource = $DB->get_record_sql($resourcesql);
 		
+		// Gets a count of activites in the mdl_course_modules table with course = $c
+		// TODO Find out why SCORM has a problem
 		$modulesql   = 'SELECT count(*) AS mods 
 		                FROM mdl_course_modules AS cm 
-                        WHERE cm.course ='. $c->cid .' AND module <> 17';
+		                WHERE cm.course ='. $c->cid;
 		$module = $DB->get_record_sql($modulesql);
 		
-		$viewsql     = 'SELECT DISTINCT count(id) AS views, MAX(time) AS lastlogin 
+		// Get total number of logins to a course
+		$totallogins = 'SELECT count(id) AS logins
+		                FROM {logstore_standard_log}
+		                WHERE timecreated > :timeframe AND courseid = '. $c->cid . ' AND action = "viewed" AND edulevel = 2';
+        $parameters['timeframe'] = $params['timeframe'];
+        $logins = $DB->get_record_sql($totallogins, $parameters);
+        
+        // Get the last time a user logged into a specific course
+		$viewsql     = 'SELECT DISTINCT MAX(timecreated) AS lastlogin 
 		                FROM {logstore_standard_log} 
-                        WHERE course = '. $c->cid . ' AND action = "view" AND time > '.$params["date"];
+		                WHERE courseid = '. $c->cid . ' AND action = "viewed" AND edulevel = 2';
 		$view = $DB->get_record_sql($viewsql);
 		
-		$updatesql = 'SELECT course, MAX(time) AS Updated FROM {logstore_standard_log}
-				      WHERE (action LIKE "%add%" OR action = "update") AND course = '.$c->cid;
+		// Get the last time an add or update action was taken on a course = $c
+		$updatesql   = 'SELECT MAX(timecreated) AS Updated 
+		                FROM {logstore_standard_log}
+                        WHERE (action LIKE "created" OR action = "updated" OR action = "deleted") AND courseid = '.$c->cid . ' AND target = "course_module"';
 		$update = $DB->get_record_sql($updatesql);
 		
 		$row['coursename'] = $c->course;
@@ -329,16 +342,21 @@ function get_download_data($params) {
 		}
 		$row['createdon'] = userdate($c->created, get_string('strftimedatefullshort', 'langconfig'));
 		$row['enrolledstudents'] = $students->students;
-		$row['logins'] = $view->views;	
+		$row['logins'] = $logins->logins;	
 		$row['lastlogin'] = userdate($view->lastlogin, get_string('strftimedatefullshort', 'langconfig'));
-		$row['lastupdate'] = userdate($update->updated, get_string('strftimedatefullshort', 'langconfig'));	
+		if (!$update->updated) {
+    		$row['lastupdate'] = "Unknown";
+		} else {
+		    $row['lastupdate'] = userdate($update->updated, get_string('strftimedatefullshort', 'langconfig'));	
+        }
+		$row['activites'] = $module->mods - $resource->res;
 		$row['resources'] = $resource->res;	
-		$row['activites'] = $module->mods;	
+			
 
 		$rows[$i] = $row;
 		$i++;
 	}
-	
+		
 		return $rows;
 
 	
