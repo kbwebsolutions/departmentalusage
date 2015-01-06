@@ -43,8 +43,8 @@ $showteachers   = optional_param('showteachers', 0, PARAM_INT); // Show teachers
 $params = array();
 
 $params['hod'] = $hod;
-$params['date'] = $timefrom;
 $params['showteachers'] = $showteachers;
+$params['timeframe'] = $timefrom;
 
 
 
@@ -59,8 +59,9 @@ if ($format) {
                     'logins' 			=> 'Logins',
                     'lastlogin'  		=> 'Last Login',
                     'lastupdate'  		=> 'Last Update',
-                    'resources' 		=> 'Resources',
-                    'activites' 		=> 'Activites');
+                    'activites' 		=> 'Learning Objects',
+                    'resources' 		=> 'Resources');
+                    
     } else {
 		$fields = array(
 					'depthead'			=> 'Department Head',
@@ -70,8 +71,9 @@ if ($format) {
                     'logins' 			=> 'Logins',
                     'lastlogin'  		=> 'Last Login',
                     'lastupdate'  		=> 'Last Update',
-                    'resources' 		=> 'Resources',
-                    'activites' 		=> 'Activites');
+                    'activites' 		=> 'Learning Objects',
+                    'resources' 		=> 'Resources');
+                    
 
     }
 

@@ -23,8 +23,8 @@
  * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-$plugin->version   	= 2013080600;    // The current plugin version (Date: YYYYMMDDXX)
+$plugin->version   	= 2015010600;    // The current plugin version (Date: YYYYMMDDXX)
 $plugin->requires  	= 2012112900;    // Requires this Moodle version
 $plugin->component 	= 'report_departmentalusage';  // Full name of the plugin (used for diagnostics)
-$plugin->release	= 'v2.1';
+$plugin->release	= 'v3.0';
 $plugin->maturity	= 'STABLE';

@@ -75,14 +75,13 @@ if($isadmin) {
 } else {
 	$params['hod'] = $uid;
 }
-$params['date'] = $timefrom;
 $params['showteachers'] = $showteachers;
+$params['timeframe'] = $timefrom;
 if(!$downloadtype) {
 	$params['type'] = 'csv';
 } else {
 	$params['type'] = $downloadtype;
 }
-
 
 $hods = get_hods();
 $timeoptions = get_time();
@@ -105,7 +104,9 @@ echo html_writer::select($timeoptions,'timefrom',$timefrom);
 echo '  |  <label for="showteachers">'.get_string('showteachers', 'report_departmentalusage').'</label> '."\n";
 echo html_writer::checkbox('showteachers', true, false);
 
-echo '<span style="float:right;"><input type="submit" value="Run Report" /></span></form></div>';
+echo '<span style="float:right; margin-top:-0.5em; "><input class="btn btn-success btn-xs" type="submit" value="Run Report" /></span></form></div>';
+
+echo '<hr style="clear:both" />';
 
 // Data Table
 $results = get_data($params);
@@ -118,9 +119,9 @@ echo '<div id="downloadoptions"><form class="settingsform" action="'.$CFG->wwwro
 echo '<input type="hidden" name="format" value="csv">';
 echo '<input type="hidden" name="hod" value="'.$params['hod'].'">';
 
-echo '<input type="hidden" name="date" value="'.$params['date'].'">';
+echo '<input type="hidden" name="date" value="'.$params['timeframe'].'">';
 echo '<input type="hidden" name="showteachers" value="'.$params['showteachers'].'">';
 
-echo ' <input type="submit" value="Download Report" /></form></div>';
+echo ' <input type="submit" class="btn btn-xs btn-primary" value="Download Report" /></form></div>';
 
 echo $OUTPUT->footer();

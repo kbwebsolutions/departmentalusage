@@ -38,13 +38,14 @@ $string['downloadoption'] = 'Download this report as a: ';
 
 // Table Headers
 $string['course'] = 'Course Name';
-$string['teachers'] = 'Editing Teachers';
+$string['teachers'] = 'Teachers';
 $string['created'] = 'Created On';
 $string['enrolled'] = 'Enrolled Students';
 $string['logins'] = 'Logins';
-$string['lastlogin'] = 'Last Login';
+$string['lastlogin'] = 'Last Student Login';
 $string['update'] = 'Last Update';
 $string['resources'] = 'Resources';
-$string['activities'] = 'Activites';
+$string['lobs'] = 'Learning Objects';
+$string['activities'] = 'Learning Objects';
 
 $string['reportname'] = 'VLE_department_usage_report';
