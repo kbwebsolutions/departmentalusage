@@ -109,7 +109,10 @@ echo '<span style="float:right; margin-top:-0.5em; "><input class="btn btn-succe
 echo '<hr style="clear:both" />';
 
 // Data Table
-$results = get_data($params);
+//$results = get_data($params);
+$data = array();
+$data = get_data($params);
+$results = display_data($data, $params);
 echo $results;
 echo '<p><em>Click on the course title for a more indepth report on that course.</em></p>';
 

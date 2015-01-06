@@ -178,8 +178,14 @@ function get_data($params) {
                              );
 	}
 	
+	$coursedata = array();
 	foreach ($courses as $c) {
 		$teach = get_teachers($c->cid);
+		
+		$repdata['cid'] = $c->cid;
+		$repdata['course'] = $c->course;
+		$repdata['teachers'] = $teach;
+		$repdata['createddate'] = $c->created;
 		
 		// Gets the students based on context level 50 - course and course id from $c
 		$studentssql = 'SELECT count(asg.id) AS students 
@@ -188,12 +194,14 @@ function get_data($params) {
                         JOIN mdl_user AS usr on usr.id = asg.userid JOIN mdl_course AS course ON context.instanceid = course.id 
                         WHERE asg.roleid = 5 AND course.id ='.$c->cid;
 		$students = $DB->get_record_sql($studentssql);
+		$repdata['students'] = $students->students;
 		
 		// Gets a count of resources in the mdl_resource table with course = $c
 		$resourcesql = 'SELECT count(id) AS res 
 		                FROM mdl_resource 
 		                WHERE course = '. $c->cid;
 		$resource = $DB->get_record_sql($resourcesql);
+		$repdata['resources'] = $resource->res;
 		
 		// Gets a count of activites in the mdl_course_modules table with course = $c
 		// TODO Find out why SCORM has a problem
@@ -201,6 +209,7 @@ function get_data($params) {
 		                FROM mdl_course_modules AS cm 
 		                WHERE cm.course ='. $c->cid;
 		$module = $DB->get_record_sql($modulesql);
+		$repdata['los'] = $module->mods;
 		
 		// Get total number of logins to a course
 		$totallogins = 'SELECT count(id) AS logins
@@ -208,39 +217,82 @@ function get_data($params) {
 		                WHERE timecreated > :timeframe AND courseid = '. $c->cid . ' AND action = "viewed" AND edulevel = 2';
         $parameters['timeframe'] = $params['timeframe'];
         $logins = $DB->get_record_sql($totallogins, $parameters);
+        $repdata['logins'] = $logins->logins;
         
         // Get the last time a user logged into a specific course
 		$viewsql     = 'SELECT DISTINCT MAX(timecreated) AS lastlogin 
 		                FROM {logstore_standard_log} 
 		                WHERE courseid = '. $c->cid . ' AND action = "viewed" AND edulevel = 2';
 		$view = $DB->get_record_sql($viewsql);
+		$repdata['lastlogin'] = $view->lastlogin;
 		
 		// Get the last time an add or update action was taken on a course = $c
 		$updatesql   = 'SELECT MAX(timecreated) AS Updated 
 		                FROM {logstore_standard_log}
                         WHERE (action LIKE "created" OR action = "updated" OR action = "deleted") AND courseid = '.$c->cid . ' AND target = "course_module"';
 		$update = $DB->get_record_sql($updatesql);
+		$repdata['updated'] = $update->updated;
 		
-		// This section creates a row for the table
+		$coursedata[$c->cid] = $repdata;
+		
+	}
+	
+	return $coursedata;
+}
+
+function display_data($data, $params) {
+	
+	global $CFG;
+	
+	
+    $table = new html_table();
+	if($params['showteachers'] == 1) {
+		$table->align = array('left', 'center','center', 'center', 'center', 'center', 'center', 'center', 'center');
+        $table->head  = array(get_string('course', 'report_departmentalusage'), 
+                              get_string('teachers', 'report_departmentalusage'), 
+                              get_string('created', 'report_departmentalusage'), 
+                              get_string('enrolled', 'report_departmentalusage'), 
+                              get_string('logins', 'report_departmentalusage'), 
+                              get_string('lastlogin', 'report_departmentalusage'), 
+                              get_string('update', 'report_departmentalusage'), 
+                              get_string('activities', 'report_departmentalusage'), 
+                              get_string('resources', 'report_departmentalusage')
+                             );
+
+	} else {
+	    $table->align = array('left', 'center', 'center', 'center', 'center', 'center', 'center', 'center');
+        $table->head  = array(get_string('course', 'report_departmentalusage'), 
+                              get_string('created', 'report_departmentalusage'), 
+                              get_string('enrolled', 'report_departmentalusage'), 
+                              get_string('logins', 'report_departmentalusage'), 
+                              get_string('lastlogin', 'report_departmentalusage'), 
+                              get_string('update', 'report_departmentalusage'), 
+                              get_string('activities', 'report_departmentalusage'), 
+                              get_string('resources', 'report_departmentalusage')
+                             );
+	}
+	
+	
+    foreach($data as $c) {
+        print_object($c);
+    	// This section creates a row for the table
 		$row = array();
-		$row[] = '<a href="'.$CFG->wwwroot.'/report/outline/index.php?id='.$c->cid.'">'.$c->course.'</a>';
+		$row[] = '<a href="'.$CFG->wwwroot.'/report/outline/index.php?id='.$c['cid'].'">'.$c['course'].'</a>';
 		if ($params['showteachers'] == 1) {
-			$row[] = $teach;
+			$row[] = $c['teachers'];
 		}
-		$row[] = userdate($c->created, get_string('strftimedatefullshort', 'langconfig'));
-		$row[] = '<a href="'.$CFG->wwwroot.'/user/index.php?id='.$c->cid.'">'.$students->students.'</a>';
+		$row[] = userdate($c['createddate'], get_string('strftimedatefullshort', 'langconfig'));
+		$row[] = '<a href="'.$CFG->wwwroot.'/user/index.php?id='.$c['cid'].'">'.$c['students'].'</a>';
 		//$row[] = '<a href="'.$CFG->wwwroot.'/user/index.php?id='.$c->cid.'">'.$c->students.'</a>';
-		$row[] = $logins->logins;	
-		$row[] = format_time(time() - $view->lastlogin);
-		if (!$update->updated) {
+		$row[] = $c['logins'];	
+		$row[] = format_time(time() - $c['lastlogin']);
+		if (!$c['updated']) {
 			$row[] = "Unknown";
 		} else {
-			$row[] = format_time(time() - $update->updated);
+			$row[] = format_time(time() - $c['updated']);
 		}	
-		$row[] = $module->mods - $resource->res;
-		$row[] = $resource->res;	
-			
-		
+		$row[] = $c['los'] - $c['resources'];
+		$row[] = $c['resources'];	
 		
 		$table->data[] = $row;
 		
