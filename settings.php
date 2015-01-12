@@ -41,21 +41,13 @@ if (get_config('report_departmentalusage', 'managerroleid')) {
     $defaultrole = 4;
 };
 
-$roles = $DB->get_records_sql('SELECT id, name, shortname FROM mdl_role');
-foreach($roles as $r) {
-    if (!$r->name) { 
-        $roletypes[$r->id] = $r->shortname;
-    } else {
-        $roletypes[$r->id] = $r->name;
-    }
-}
-	
+$roles = $DB->get_records_menu('role',$conditions,'shortname','id, shortname');
 
 $settings->add(new admin_setting_configselect('report_departmentalusage/managerroleid',
                     get_string('chooseroleid', 'report_departmentalusage'),
                     get_string('descchooseroleid', 'report_departmentalusage'),
                     $defaultrole,
-                    $roletypes)
+                    $roles)
                 );    
 
 
