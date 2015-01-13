@@ -113,14 +113,12 @@ echo '<hr style="clear:both" />';
 
 // Data Table
 //$results = get_data($params);
-$data = array();
-$data = get_data($params);
-$results = display_data($data, $params);
+
 echo $results;
 echo '<p><em>Click on the course title for a more indepth report on that course.</em></p>';
 
 echo '<hr />';
-echo '<div id="downloadoptions"><form class="settingsform" action="'.$CFG->wwwroot.'/report/departmentalusage/download.php" method="get">';
+echo '<div id="downloadoptions"><form class="settingsform" action="'.$CFG->wwwroot.'/report/departmentalusage/download.php " method="get">';
 
 echo '<input type="hidden" name="format" value="csv">';
 echo '<input type="hidden" name="hod" value="'.$params['hod'].'">';
