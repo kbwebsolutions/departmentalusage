@@ -87,8 +87,11 @@ $hods = get_hods();
 $timeoptions = get_time();
 $outputtypes = array('xls'=>'*.xls file', 'csv'=>'*.csv file');
 
-echo $OUTPUT->header();
+$data = array();
+$data = get_data($params);
+$results = display_data($data, $params);
 
+echo $OUTPUT->header();
 
 // Options Form
 echo '<div id="options"><form class="settingsform" action="'.$CFG->wwwroot.'/report/departmentalusage/index.php" method="get">';

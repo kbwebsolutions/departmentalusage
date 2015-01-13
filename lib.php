@@ -137,7 +137,6 @@ function get_dept_cats($managerrole, $userid) {
     $params['managerrole'] = $managerrole;
     
     $content = $DB->get_records_sql($cats, $params);
-    
     return $content;
     
 }
@@ -273,26 +272,25 @@ function display_data($data, $params) {
 	}
 	
 	
-    foreach($data as $c) {
-        print_object($c);
-    	// This section creates a row for the table
+    foreach($data as $d) {
+       
+        // This section creates a row for the table
 		$row = array();
-		$row[] = '<a href="'.$CFG->wwwroot.'/report/outline/index.php?id='.$c['cid'].'">'.$c['course'].'</a>';
+		$row[] = '<a href="'.$CFG->wwwroot.'/report/outline/index.php?id='.$d['cid'].'">'.$d['course'].'</a>';
 		if ($params['showteachers'] == 1) {
-			$row[] = $c['teachers'];
+			$row[] = $d['teachers'];
 		}
-		$row[] = userdate($c['createddate'], get_string('strftimedatefullshort', 'langconfig'));
-		$row[] = '<a href="'.$CFG->wwwroot.'/user/index.php?id='.$c['cid'].'">'.$c['students'].'</a>';
-		//$row[] = '<a href="'.$CFG->wwwroot.'/user/index.php?id='.$c->cid.'">'.$c->students.'</a>';
-		$row[] = $c['logins'];	
-		$row[] = format_time(time() - $c['lastlogin']);
-		if (!$c['updated']) {
+		$row[] = userdate($d['createddate'], get_string('strftimedatefullshort', 'langconfig'));
+		$row[] = '<a href="'.$CFG->wwwroot.'/user/index.php?id='.$d['cid'].'">'.$d['students'].'</a>';
+		$row[] = $d['logins'];	
+		$row[] = format_time(time() - $d['lastlogin']);
+		if (!$d['updated']) {
 			$row[] = "Unknown";
 		} else {
-			$row[] = format_time(time() - $c['updated']);
+			$row[] = format_time(time() - $d['updated']);
 		}	
-		$row[] = $c['los'] - $c['resources'];
-		$row[] = $c['resources'];	
+		$row[] = $d['los'] - $d['resources'];
+		$row[] = $d['resources'];	
 		
 		$table->data[] = $row;
 		
@@ -310,20 +308,99 @@ function get_report_data($params) {
     $config = get_config('report_departmentalusage');
 	
 	$cats = get_dept_cats($config->managerroleid, $params['hod']);
-    $catno = implode(", ", array_keys($cats));
-    	
-	$courselistsql = "SELECT c.id AS cid, c.fullname AS course, c.timecreated AS Created, c.visible AS visible
+    $catno = implode(",", array_keys($cats));
+    $courselistsql = "SELECT c.id AS cid, c.fullname AS course, c.timecreated AS Created, c.visible AS visible
                       FROM {course} c
                       LEFT JOIN {context} ctx ON (ctx.instanceid = c.id AND ctx.contextlevel = :contextlevel)
-                      WHERE c.category IN ( :catid ) and c.id <> :sid";
+                      WHERE c.category IN (".$catno.") and c.id <> :sid";
                         
 	$sqlparams['contextlevel'] = CONTEXT_COURSE;
 	$sqlparams['sid'] = SITEID;
 	$sqlparams['catid'] = $catno;
-
 	$courses = $DB->get_records_sql($courselistsql, $sqlparams);
+	return $courses;
+}
+
+function downloaddata($data, $params) {
+    global $CFG, $DB; 
+    $rows = array();
+    echo gettype($data);
+    $i = 1;
+    
+     
+    foreach ($data as $d) {
+        $row['coursename'] = $d['course'];
+		if ($params['showteachers'] == 1) {
+			$row['editingteachers'] = rtrim(strip_tags($d['teachers']), ",");
+		}
+		$row['createdon'] = userdate($d['createddate'], get_string('strftimedatefullshort', 'langconfig'));
+		$row['enrolledstudents'] = $d['students'];
+		$row['logins'] = $d['logins'];	
+		$row['lastlogin'] = userdate($d['lastlogin'], get_string('strftimedatefullshort', 'langconfig'));
+		if (!$d['updated']) {
+    		$row['lastupdate'] = "Unknown";
+		} else {
+		    $row['lastupdate'] = userdate($d['updated'], get_string('strftimedatefullshort', 'langconfig'));	
+        }
+		$row['activites'] = $d['los'] - $d['resources'];
+		$row['resources'] = $d['resources'];	
+			
+
+		$rows[$i] = $row;
+        
+		$i++;
+    
+    }
+    return $rows;
+}
+
+function download_csv_report($data, $params) {
+    global $CFG, $DB;
+    require_once($CFG->libdir . '/csvlib.class.php');
+    $data = get_download_data($params);
+    
+    
+    if ($params['showteachers'] == 1) {
+        $fields = array(
+    			'depthead'			=> 'Department Head',
+    			'coursename'   		=> 'Course Name',
+                'editingteachers'	=> 'Editing Teachers',
+                'createdon'  		=> 'Created On',
+                'enrolledstudents'	=> 'Enrolled Students',
+                'logins' 			=> 'Logins',
+                'lastlogin'  		=> 'Last Login',
+                'lastupdate'  		=> 'Last Update',
+                'activites' 		=> 'Learning Objects',
+                'resources' 		=> 'Resources');
+                    
+    } else {
+		$fields = array(
+        		'depthead'			=> 'Department Head',
+                'coursename'    	=> 'Course Name',
+                'createdon'  		=> 'Created On',
+                'enrolledstudents'	=> 'Enrolled Students',
+                'logins' 			=> 'Logins',
+                'lastlogin'  		=> 'Last Login',
+                'lastupdate'  		=> 'Last Update',
+                'activites' 		=> 'Learning Objects',
+                'resources' 		=> 'Resources');
+                    
+
+    }
+    
+    print_object($fields);
+    
+    $usersql = 'SELECT CONCAT_WS(" ", firstname, lastname) AS depthead FROM mdl_user WHERE mdl_user.id ='.$params['hod'];
+	$user = $DB->get_record_sql($usersql);
 	
-    return $courses;
+	$filename = $user->depthead.'-'.get_string('reportname', 'report_departmentalusage');
+    $csvexport = new csv_export_writer();
+    $csvexport->set_filename($filename);
+    $csvexport->add_data($fields);
+    foreach($data as $d) {
+	    $csvexport->add_data($d);
+    }
+    $csvexport->download_file();
 }
 /**
  * This function gets the data but ready for downloading
